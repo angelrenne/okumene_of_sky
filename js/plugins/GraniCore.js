@@ -348,7 +348,7 @@
 				if ( 5 < this.charFrameCount ) {
 					AudioManager.playSe(
 						{
-							name:'FukidashiChar',
+							name:'カーソル1',
 							volume:this._ppFukiSeCharVolume,
 							pitch:100,
 							pan:0
