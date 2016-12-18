@@ -8258,6 +8258,7 @@ Game_Vehicle.prototype.pos = function(x, y) {
 };
 
 Game_Vehicle.prototype.isMapPassable = function(x, y, d) {
+    console.log("")
     var x2 = $gameMap.roundXWithDirection(x, d);
     var y2 = $gameMap.roundYWithDirection(y, d);
     if (this.isBoat()) {
@@ -9264,6 +9265,7 @@ Game_Interpreter.prototype.command111 = function() {
         break;
     case 10:  // Armor
         result = $gameParty.hasItem($dataArmors[this._params[1]], this._params[2]);
+        console.log($gameParty.hasItem($dataArmors[this._params[1]], this._params[2]));
         break;
     case 11:  // Button
         result = Input.isPressed(this._params[1]);
@@ -9274,6 +9276,7 @@ Game_Interpreter.prototype.command111 = function() {
     case 13:  // Vehicle
         result = ($gamePlayer.vehicle() === $gameMap.vehicle(this._params[1]));
         break;
+        console.log
     }
     this._branch[this._indent] = result;
     if (this._branch[this._indent] === false) {

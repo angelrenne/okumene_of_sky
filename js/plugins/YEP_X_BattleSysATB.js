@@ -738,7 +738,7 @@ BattleManager.tickRate = function() {
 };
 
 BattleManager.atbTickRate = function() {
-    var rate = 0.1 * ConfigManager.atbSpeed;
+    var rate = 0.1 * ConfigManager.atbSpeed + 0.5;
     return rate;
 };
 
@@ -2122,6 +2122,7 @@ Scene_Battle.prototype.updateWindowPositions = function() {
     } else {
       Yanfly.ATB.Scene_Battle_updateWindowPositions.call(this);
     }
+    
 };
 
 Yanfly.ATB.Scene_Battle_isStartActorCommand =

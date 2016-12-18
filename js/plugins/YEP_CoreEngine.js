@@ -1156,7 +1156,7 @@ Game_Character.prototype.setMoveRoute = function(moveRoute) {
 //=============================================================================
 // Game_Event イベント同士が重ならない設定が記述されていたためコメントアウト
 //=============================================================================
-/*
+
 Game_Event.prototype.isCollidedWithEvents = function(x, y) {
   var events = $gameMap.eventsXyNt(x, y).filter(function(ev) {
     return ev.isNormalPriority();
@@ -1164,7 +1164,7 @@ Game_Event.prototype.isCollidedWithEvents = function(x, y) {
   if (events.length <= 0) return false;
   return this.isNormalPriority();
 };
-*/
+
 //=============================================================================
 // Game_Interpreter
 //=============================================================================

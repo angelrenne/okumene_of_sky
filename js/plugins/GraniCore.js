@@ -2,6 +2,12 @@
 // GraniCore.js
 //=============================================================================
 
+var Imported = Imported || {};
+Imported.Grani_CoreEngine = true;
+
+var Grani = Grani || {};
+Grani.Core = Grani.Core || {};
+
 /*:
  * @plugindesc グラニーコアJS
  * 吹き出しウィンドウなど
@@ -20,6 +26,8 @@
  *       #  eventName : 実行するイベント名
  * 
  * 更新履歴:
+ *  ver 1.3
+ * 	    触れた時にコモンイベントを呼び出す機能を追加
  *  ver 1.2
  *      デスポン変更分をマージ。
  *      顔グラ表示位置などをプラグインパラメータで指定できるように変更。
@@ -71,15 +79,67 @@
  * @param fuki_seCharFileName
  * @desc
  *     フキダシで文字送り時に再生するSEのファイル名
- *     規定値: 'FukidashiChar'
- * @default 'FukidashiChar'
+ *     規定値: FukidashiChar
+ * @default FukidashiChar
  *
  * @param fuki_seCharVolume
  * @desc
  *     フキダシで文字送り時に再生するSEのボリューム
  *     規定値: 90
  * @default 90
+ * 
+ * 
+ * 
+ * @param cmndsp_tuchRgnId
+ * @desc
+ *     ここで指定したリージョンに触れた時にコモンイベントを発動する
+ *     規定値: 100
+ * @default 100
+ * 
+ * @param cmndsp_tuchCmnEvId
+ * @desc
+ *     指定リージョンに触れた時に発動するコモンイベントID
+ *     規定値: 100
+ * @default 100
+ * 
+ * @param cmndsp_tuchRgnIdLength
+ * @desc
+ *     指定リージョンに触れた時に指定コモンイベントを発動する機能を、何種類分使用するか
+ *     規定値: 5
+ * @default 5
+ * 
  */
+
+	//-----------------------------------------------------------------------------
+	// CRC32
+	
+(function() {
+	var _crcTable = null;
+	var makeCRCTable = function(){
+		var c;
+		var crcTable = [];
+		for(var n =0; n < 256; n++){
+			c = n;
+			for(var k =0; k < 8; k++){
+				c = ((c&1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+			}
+			crcTable[n] = c;
+		}
+		return crcTable;
+	}
+	
+	Grani.Core.crc32 = function(str) {
+		var crcTable = _crcTable || (_crcTable = makeCRCTable());
+		var crc = 0 ^ (-1);
+	
+		for (var i = 0; i < str.length; i++ ) {
+			crc = (crc >>> 8) ^ crcTable[(crc ^ str.charCodeAt(i)) & 0xFF];
+		}
+	
+		return (crc ^ (-1)) >>> 0;
+	};
+})();
+
 
 (function() {
 	
@@ -121,7 +181,7 @@
 		this._ppFukiFaceHeight = parseInt(pluginParam['fuki_faceHeight'] || 144);
 		this._ppFukiFaceOffsetPosX = parseInt(pluginParam['fuki_faceOffsetPosX'] || 0);
 		this._ppFukiFaceOffsetPosY = parseInt(pluginParam['fuki_faceOffsetPosY'] || 0);
-		this._ppFukiSeCharFileName = parseInt(pluginParam['fuki_seCharFileName'] || 'FukidashiChar');
+		this._ppFukiSeCharFileName = pluginParam['fuki_seCharFileName'] || 'FukidashiChar';
 		this._ppFukiSeCharVolume = parseInt(pluginParam['fuki_seCharVolume'] || 90);
 		
 		this._currentFukidashiMode = false;
@@ -348,7 +408,7 @@
 				if ( 5 < this.charFrameCount ) {
 					AudioManager.playSe(
 						{
-							name:'カーソル1',
+							name:this._ppFukiSeCharFileName,
 							volume:this._ppFukiSeCharVolume,
 							pitch:100,
 							pan:0
@@ -569,16 +629,40 @@
 	
 	
 	//-----------------------------------------------------------------------------
-	// Game_Interpreter
+	// PluginCmdBase
 	//
-	// インタープリタークラス
+	// Graniプラグインで追加するプラグインコマンドの処理を行うクラスの基底クラス
+	Grani.Core.PluginCmdBase = function() {
+		this.initialize.apply(this, arguments);
+	}
+	Grani.Core.PluginCmdBase.prototype.initialize = function() {
+	}
+	Grani.Core.PluginCmdBase.prototype.tick = function(interpreter, cmd, args) {
+		//console.log(this);
+		return false;
+	}
+	
+	
+	//-----------------------------------------------------------------------------
+	// FukidashiSys
+	//
+	// 吹き出しを表示するプラグインコマンド
+	function FukidashiSys() {
+		this.initialize.apply(this, arguments);
+	}
+	FukidashiSys.prototype = Object.create(Grani.Core.PluginCmdBase.prototype);
+	FukidashiSys.prototype.constructor = FukidashiSys;
 
-	// [メソッド差し替え] プラグインコマンド
-	var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
-	Game_Interpreter.prototype.pluginCommand = function(command, args) {
-		_Game_Interpreter_pluginCommand.call(this, command, args);
-		switch (command) {
-		case '吹き出し':
+	FukidashiSys.prototype.initialize = function() {
+		Grani.Core.PluginCmdBase.prototype.initialize.call(this);
+		this._cmdShow = Grani.Core.crc32( '吹き出し' );
+	}
+	
+	FukidashiSys.prototype.tick = function(interpreter, cmd, args) {
+		if ( Grani.Core.PluginCmdBase.prototype.tick.call(this, interpreter, cmd, args) ) return true;
+		
+		switch( cmd ){
+		case this._cmdShow :
 			window.$fukidashiMode = true;
 /*		    var param = JSON.parse( this._params[0].substring('吹き出し'.length) );
 			window.$fukidashiMode = true;
@@ -588,8 +672,34 @@
 			window.$fukidashiTarget  = args[1] ? args[1] :
 				( window.$fukidashiName == FUKIDASI_NAME_DEFAULT ? FUKIDASI_TARGET_DEFAULT : window.$fukidashiName );
 			//*/
-			break;
-		case 'イベント実行':
+			return true;
+		}
+		return false;
+	}
+	
+	var fukidashiSys = new FukidashiSys();
+	
+	
+	//-----------------------------------------------------------------------------
+	// ForceExecEv
+	//
+	// 指定位置のイベントを強制実行するプラグインコマンド
+	function ForceExecEv() {
+		this.initialize.apply(this, arguments);
+	}
+	ForceExecEv.prototype = Object.create(Grani.Core.PluginCmdBase.prototype);
+	ForceExecEv.prototype.constructor = ForceExecEv;
+
+	ForceExecEv.prototype.initialize = function() {
+		Grani.Core.PluginCmdBase.prototype.initialize.call(this);
+		this._cmdShow = Grani.Core.crc32( 'イベント実行' );
+	}
+	
+	ForceExecEv.prototype.tick = function(interpreter, cmd, args) {
+		if ( Grani.Core.PluginCmdBase.prototype.tick.call(this, interpreter, cmd, args) ) return true;
+		
+		switch( cmd ){
+		case this._cmdShow :
 			for (var i = 0; i < $dataMap.events.length; i++) {
 				var src = $dataMap.events[i];
 				if (src && src.name == args[0]) {
@@ -597,9 +707,116 @@
 					e.start();
 					break;
 				}
-			}		
-			break;
+			}
+			return true;
 		}
+		return false;
+	}
+	
+	var forceExecEv = new ForceExecEv();
+	
+
+	//-----------------------------------------------------------------------------
+	// CommonEvDispatcher
+	//
+	// イベントに触れた際などにコモンイベントを再生する処理をまとめたクラス
+	Grani.Core.CommonEvDispatcher = function() {
+		this.initialize.apply(this, arguments);
+	}
+	Grani.Core.CommonEvDispatcher.prototype.initialize = function() {
+		var pluginParam = PluginManager.parameters('GraniCore');
+		this._tuchRgnId = parseInt(pluginParam['cmndsp_tuchRgnId'] || 100);
+		this._tuchCmnEvId = parseInt(pluginParam['cmndsp_tuchCmnEvId'] || 100);
+		this._tuchRgnIdLength = parseInt(pluginParam['cmndsp_tuchRgnIdLength'] || 5);
+
+		this._cmdQueue = new Array(20);
+		this._cmdQueueLen = 0;
+		this._isWaitingCmnEv = false;
+	}
+	Grani.Core.CommonEvDispatcher.prototype.startMapEvent = function(x, y, triggers, normal) {
+		if (!$gameMap.isEventRunning()) {
+			// 指定リージョンに触れた際に指定コモンイベントを実行する
+			if (triggers.contains(1)) {
+				var id = $gameMap.regionId(x, y) - this._tuchRgnId; 
+				if ( 0 <= id && id < this._tuchRgnIdLength ) {
+					this._cmdQueue[this._cmdQueueLen] = $dataCommonEvents[this._tuchCmnEvId + id].list; 
+					++this._cmdQueueLen;
+				}
+			}
+		}
+	}
+	// 現在動作待ちか否か
+	Grani.Core.CommonEvDispatcher.prototype.isWaitingCmnEv = function() {
+		return this._isWaitingCmnEv;
+	}
+	// キューに積まれたコモンイベントをクリアする
+	Grani.Core.CommonEvDispatcher.prototype.terminate = function() {
+		this._cmdQueueLen = 0;
+		this._isWaitingCmnEv = false;
+	}
+	// キューに積まれたコモンイベントを実行する。実行するコモンイベントがある場合はtrueを返す
+	Grani.Core.CommonEvDispatcher.prototype.execute = function(interpreter) {
+		if (this._cmdQueueLen==0) return false;
+		for (var i=0; i<this._cmdQueueLen; ++i) {
+			interpreter.setupChild(this._cmdQueue[i], 0);
+		}
+		this._cmdQueueLen = 0;
+		this._isWaitingCmnEv = true;
+		return true;
+	}
+
+	var cmnEvDsp = new Grani.Core.CommonEvDispatcher();
+	
+
+	//-----------------------------------------------------------------------------
+	// Game_Interpreter
+	//
+	// インタープリタークラス
+
+	// [メソッド差し替え] 更新処理
+	var _Game_Interpreter_update = Game_Interpreter.prototype.update;
+	Game_Interpreter.prototype.update = function() {
+		// コモンイベントディスパッチャーの更新処理を行う
+		while (true) {
+			if (!cmnEvDsp.isWaitingCmnEv()) {
+				if (!cmnEvDsp.execute(this)) break;
+				return;
+			}
+
+			if (this.updateChild() || this.updateWait()) {
+				return;
+			}
+
+			cmnEvDsp.terminate();
+		}
+
+		_Game_Interpreter_update.call(this);
+	};
+	
+	// プラグインコマンド名をcrc32で指定するバージョンのコマンドインタプリタ
+	Game_Interpreter.prototype.pluginCommandCrc32 = function(cmdCrc32, args) {
+		if ( fukidashiSys.tick(this, cmdCrc32, args) ) return true;
+		if ( forceExecEv.tick(this, cmdCrc32, args) ) return true;
+		return false;
+
+// jsではこの書き方だとなぜか正常に動作しない。
+//		return
+//			fukidashiSys.tick(this, cmdCrc32, args) ||
+//			forceExecEv.tick(this, cmdCrc32, args);
+	}
+	
+	// [メソッド差し替え] プラグインコマンド
+	var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+	Game_Interpreter.prototype.pluginCommand = function(command, args) {
+		_Game_Interpreter_pluginCommand.call(this, command, args);
+		
+/*if ( command == "aiueo" ) {
+	console.trace();
+	console.log( "a" );
+}//*/
+		
+		var cmdCrc32 = Grani.Core.crc32(command);
+		this.pluginCommandCrc32(cmdCrc32, args);
 	};
 	
 	/** [メソッド差し替え] イベントインタプリタ内の、メッセージイベントが来た時の処理 */
@@ -650,5 +867,26 @@
 	
 		return _Game_Interpreter_command101.call(this);
 	};
+
+
+
+	//-----------------------------------------------------------------------------
+	// Game_Player
+	//
+
+	// [メソッド差し替え] マップイベント実行
+	var _Game_Player_startMapEvent = Game_Player.prototype.startMapEvent;
+	Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
+		cmnEvDsp.startMapEvent(x, y, triggers, normal);
+
+		_Game_Player_startMapEvent.call(this, x, y, triggers, normal);
+	};
+
+
+	
+
+
+
+
 
 })();

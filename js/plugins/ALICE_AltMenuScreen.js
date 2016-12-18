@@ -203,11 +203,11 @@
         this.createInformationWindow();
         this.createInformationWindow2();
         // make transparent for all windows at menu scene.
-        this._statusWindow.opacity = 100;
+        this._statusWindow.opacity = 0;
         //this._goldWindow.opacity = 0;
-        this._commandWindow.opacity = 100;
-        this._informationWindow.opacity = 100;
-        this._informationWindow2.opacity = 100;
+        this._commandWindow.opacity = 0;
+        this._informationWindow.opacity = 0;
+        this._informationWindow2.opacity = 0;
     };
 
     var _Scene_Item_create = Scene_Item.prototype.create;
@@ -523,6 +523,20 @@
     Window_MenuCommand.prototype.numVisibleRows = function() {
         return rowsCommandWnd;
     };
+    
+    Window_MenuCommand.prototype.updateCursor = function() {
+        if (this._cursorAll) {
+            var allRowsHeight = this.maxRows() * this.itemHeight();
+            this.setCursorRect(0, 0, this.contents.width, allRowsHeight);
+            this.setTopRow(0);
+        } else if (this.isCursorVisible()) {
+            var rect = this.itemRect(this.index());
+            this.setCursorRect(rect.x, rect.y + 3, rect.width, rect.height - 6);
+        } else {
+            this.setCursorRect(0, 0, 0, 0);
+        }
+    };
+
 
     Window_MenuStatus.prototype.windowWidth = function() {
         return Graphics.boxWidth - 280;

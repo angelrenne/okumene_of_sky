@@ -2365,6 +2365,7 @@ Scene_Battle.prototype.onEnemyCancel = function() {
 Scene_Battle.prototype.onSkillOk = function() {
     var skill = this._skillWindow.item();
     var action = BattleManager.inputtingAction();
+    console.log($dataSkills[1])
     action.setSkill(skill.id);
     BattleManager.actor().setLastBattleSkill(skill);
     this.onSelectAction();
